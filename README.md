@@ -1,0 +1,1 @@
+app for android7+ phones to use as a doorcamera, it records events and also can recort 24/7 and can use AI to record when forexample dog barks, car drives by, human, animals and mutch more. you can also add custom ai rules.
