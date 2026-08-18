@@ -1,3 +1,15 @@
+# AIDoorMonitor v0.5.13 — Live event + camera-phone temperature overlay
+
+## New in v0.5.13
+
+- Monitor live view now shows a translucent status strip inside the video at the bottom.
+- Camera-phone temperature is reported from Android's battery temperature sensor and refreshed through `/health`.
+- Android thermal severity is also shown when the device supports `PowerManager.currentThermalStatus` (Android 10+).
+- While an AI event is being retained, the overlay shows `EVENT REC mm:ss` plus the current AI label, e.g. `Dog`, `Cat`, `Person`, `Dog + Cat`, or `Dog whining / whimpering`.
+- Event labels update during the recording as object/sound evidence arrives.
+- When no event is active, the overlay reports whether the rolling DVR/pre-record buffer is active.
+- The same status strip remains visible in fullscreen and automatically sits above the fullscreen Record / Audio / Exit controls.
+
 # AI Door Monitor v0.5.12.1 – Dog sound AI + fullscreen crop zoom (build fix)
 
 ## Dog vocalization AI events
@@ -187,4 +199,3 @@ toward the floor**, select:
 Manual 0/90/180/270 values are direct video/preview corrections and no longer
 depend on the phone's Camera2 `SENSOR_ORIENTATION`. Use Auto only when you want
 Android sensor/display orientation to decide the output rotation.
-
