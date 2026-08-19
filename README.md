@@ -1,201 +1,151 @@
-# AIDoorMonitor v0.5.13 — Live event + camera-phone temperature overlay
+# v0.5.15.1 - Camera battery status fix
+
+- Fixes `Battery: --% • Unavailable` on camera phones where the sticky `ACTION_BATTERY_CHANGED` query returns null or fails.
+- Uses `BatteryManager.BATTERY_PROPERTY_CAPACITY` as a percentage fallback.
+- Uses `BatteryManager.BATTERY_PROPERTY_STATUS` / `isCharging` as charge-status fallbacks.
+- Uses the modern exported receiver flag on Android 13+ for the sticky system battery query.
+- Keeps USB / AC / Wireless / Dock source reporting when the sticky intent provides it.
+
+# v0.5.15 – Camera battery status overlay
+
+- Monitor live view now shows the camera phone battery percentage.
+- Shows Charging, Full, Discharging, Not charging, or Unknown state.
+- Shows AC, USB, Wireless, or External power when Android reports a power source.
+- Battery data is added centrally to `/health`, so it remains available across camera endpoint hand-offs.
+- Battery information is visible in both normal live view and fullscreen together with temperature and AI event recording status.
+
+# v0.5.13
+
+- Added live-view camera-phone temperature overlay using Android battery temperature.
+- Added thermal severity status from PowerManager on Android 10+.
+- Added active event recording indicator with elapsed `mm:ss` timer.
+- Added live AI event label display (`Dog`, `Cat`, `Person`, multi-object combinations, dog sound labels, etc.).
+- Status overlay is visible in both normal and fullscreen live view and stays above fullscreen controls.
+- `/health` now exposes `cameraPhoneTemperatureC`, `cameraPhoneThermalStatus`, `eventRecordingActive`, `eventRecordingLabel`, and `eventRecordingElapsedMs`.
 
-## New in v0.5.13
+# AIDoorMonitor v0.5.12.1 – Kotlin Build Fix
 
-- Monitor live view now shows a translucent status strip inside the video at the bottom.
-- Camera-phone temperature is reported from Android's battery temperature sensor and refreshed through `/health`.
-- Android thermal severity is also shown when the device supports `PowerManager.currentThermalStatus` (Android 10+).
-- While an AI event is being retained, the overlay shows `EVENT REC mm:ss` plus the current AI label, e.g. `Dog`, `Cat`, `Person`, `Dog + Cat`, or `Dog whining / whimpering`.
-- Event labels update during the recording as object/sound evidence arrives.
-- When no event is active, the overlay reports whether the rolling DVR/pre-record buffer is active.
-- The same status strip remains visible in fullscreen and automatically sits above the fullscreen Record / Audio / Exit controls.
+- Fixed the compiler-breaking `Map.mapValues` lambdas in `DvrEventLabeler.kt`.
+- Replaced invalid two-parameter forms such as `mapValues { _, items -> ... }` with valid `Map.Entry` destructuring: `mapValues { (_, items) -> ... }`.
+- Fixed all three occurrences, including evidence aggregation and `currentBestLabel()`.
+- This removes the cascade of `Argument type mismatch`, `Cannot infer type`, `Unresolved reference it`, and `Unresolved reference size` errors reported by Android Studio.
+- Keeps all v0.5.12 dog-sound AI and fullscreen crop-zoom features.
 
-# AI Door Monitor v0.5.12.1 – Dog sound AI + fullscreen crop zoom (build fix)
+# AIDoorMonitor v0.5.12 – Dog Sound AI + Fullscreen Crop Zoom
 
-## Dog vocalization AI events
+- Expanded the existing MediaPipe/YamNet dog-sound detector with `dog_whining`, `dog_yelping`, and `dog_howling` events.
+- Recognizes YamNet-style Bark/Bow-wow, Growling, Whimper (dog), Yip, and Howl outputs, with common label aliases.
+- Expanded the per-window classifier scan from the top 16 to the top 24 categories so quieter/subtler dog vocalizations are less likely to be discarded before thresholding.
+- New dog vocalization events can start or extend the same DVR event/pre-record pipeline as bark/growl.
+- Added built-in AI rules for Dog whining/whimpering, Dog yelping/yipping, and Dog howling. `RuleStore` automatically merges them on upgrade without replacing existing user settings.
+- Added dog-audio evidence floors so a valid low-confidence sound trigger is not automatically renamed to generic `Motion` at event-save time.
+- Updated the DVR dog-sound trigger UI text to include bark, growl, whine, whimper, yelp/yip, and howl.
+- Fullscreen live viewer now switches from remote-camera gestures to local crop gestures.
+- Two-finger pinch applies 1×–8× local viewer zoom to the received MJPEG frame.
+- One-finger drag pans the locally magnified frame without sending any camera pan command.
+- Local crop resets when fullscreen closes; the pre-existing remote camera zoom/pan state is not altered.
+- Added a fullscreen `VIEW CROP n.n×` gesture hint/status overlay.
+- Existing fullscreen Record, Audio and Exit controls and v0.5.10 remote-camera restart remain included.
 
-The Camera2 DVR now expands the existing on-device MediaPipe/YamNet sound AI to recognize and record more dog vocalizations:
+# AIDoorMonitor v0.5.11 – Fullscreen Monitor Controls
 
-- Bark / bow-wow
-- Growling
-- Whining / whimpering (`Whimper (dog)` in YamNet)
-- Yip / short yelp-like vocalizations
-- Howling
+- Added a **FULLSCREEN** button directly on the Monitor Mode live preview.
+- Fullscreen uses the existing `MjpegView`; it does not intentionally stop/recreate the live stream when entering or leaving fullscreen.
+- Added fullscreen **RECORD / STOP RECORDING** control for the camera phone's remote MP4 recording command.
+- Added fullscreen **AUDIO: ON / OFF** control, synchronized with the existing Live camera audio preference/player.
+- Added fullscreen **EXIT** control.
+- Android Back exits fullscreen first instead of leaving Monitor Mode or disconnecting the live session.
+- Fullscreen hides status/navigation bars and the rest of the monitor settings, then restores their previous visibility/padding on exit.
+- The live image keeps the existing uniform FIT_CENTER matrix so portrait video is not stretched horizontally.
+- All v0.5.10 remote camera restart behavior remains included.
 
-These detections use the existing shared DVR microphone pipeline, so there is still only one `AudioRecord`. A supported dog-sound hit can start/extend the DVR event and uses the same rolling pre-record audio/video buffer as the existing bark/growl trigger. The existing **Dog sounds start DVR event** preference now covers all of these dog vocalization events.
+# AIDoorMonitor v0.5.10 – Remote Camera Restart
 
-New built-in audio rules are merged into existing installations without overwriting user-created or previously edited rules.
+- Added a **RESTART CAMERA APP / DVR** control to Monitor Mode.
+- Added authenticated LAN endpoint `/app/restart`.
+- DvrCamera2Service now rebuilds the camera/audio pipeline after a remote restart request while keeping the LAN endpoint alive.
+- Added best-effort request to reopen the camera dashboard; Android may block background UI launches on newer versions.
+- Camera foreground services explicitly use `stopWithTask=false`; DVR remains `START_STICKY` so swiping away the UI does not intentionally stop monitoring.
+- Added task-removal recovery that reasserts the LAN endpoint and camera session when the service is still alive.
+- Android **Force stop** remains intentionally non-recoverable remotely because the OS blocks all app components until the user opens the app again.
 
-## Fullscreen local crop zoom and pan
+# AIDoorMonitor v0.5.9 – Multi-Object Event AI
 
-Monitor Mode fullscreen now changes the live gesture surface to **local viewer crop mode**:
+## Fixed: owner detected, dogs missing from the event name
 
-- Pinch with two fingers: 1.0×–8.0× local crop magnification.
-- Drag with one finger while magnified: pan freely around the received frame.
-- The crop is applied only to the monitor phone's `MjpegView` matrix. It does **not** send a camera zoom/pan command.
-- Any remote camera zoom already selected remains underneath the local viewer crop, so camera zoom and local crop can be combined.
-- Leaving fullscreen resets only the local crop and restores the existing remote-camera gesture mode.
-- Entering/leaving fullscreen keeps the same live MJPEG connection and live-audio session.
-- Uniform matrix scaling is retained, so portrait video is not stretched.
+The previous pipeline had two independent filters that could remove a dog from
+an otherwise correct event:
 
-The fullscreen overlay still includes **RECORD / STOP RECORDING**, **AUDIO ON/OFF**, and **EXIT**, plus a live crop-zoom status indicator.
+1. EfficientDet detections below 0.42 were discarded globally.
+2. The built-in Dog rule required 65% confidence, and when another candidate
+   such as Person was stronger, a second label was only retained when its score
+   was within 0.12 of the strongest candidate.
 
----
+This meant a large/close owner at e.g. 85% could produce `Person`, while a
+smaller dog at 35–60% was either discarded or omitted from the final name.
 
-# AI Door Monitor v0.5.11 – Fullscreen monitor live view
+## Pet-sensitive object thresholds
 
-In **Monitor Mode**, tap **FULLSCREEN** on the live preview to expand the same active live viewer to the display. The fullscreen overlay provides:
+Object detection now keeps credible small-object detections at:
 
-- **RECORD / STOP RECORDING** — sends the existing remote MP4 start/stop commands to the camera phone.
-- **AUDIO: ON / OFF** — toggles monitor-side live camera audio and stays synchronized with the normal `Live camera audio` checkbox.
-- **EXIT** — returns to the normal Monitor Mode layout without intentionally restarting the MJPEG stream.
-- Android **Back** exits fullscreen first.
+- Dog: 0.28
+- Cat: 0.30
+- Bird: 0.30
+- Person: 0.36
+- Bicycle: 0.34
+- Other COCO classes: 0.42
 
-The fullscreen viewer uses the same aspect-ratio-preserving `MjpegView` matrix as the normal preview, so portrait frames remain portrait instead of being stretched to fill the screen. System bars are hidden in fullscreen and can still be revealed transiently with the normal Android swipe gesture.
+These lower values are not sufficient by themselves to dominate an event name.
+The event labeler applies temporal evidence afterwards.
 
-v0.5.11 includes the v0.5.10 **RESTART CAMERA APP / DVR** feature and all earlier DVR/AI/remote-control features.
+EfficientDet now retains up to 12 objects per analysis frame instead of 6.
 
----
+## Temporal / repeated evidence
 
-# AI Door Monitor v0.3.3 DVR
+For each signal the event labeler now records:
 
-Use **NEW DVR Camera2 • Motion + Pre-record** on the camera phone.
+- maximum confidence,
+- total hit count,
+- number of distinct analysis times.
 
-## Why v0.3.3 changes the camera pipeline
+A built-in object category can qualify below its old rule threshold when it is
+seen repeatedly across the event. This specifically allows smaller dogs beside
+a person to remain part of the event classification.
 
-The Motorola Edge 30 Ultra log showed that camera 0 refuses every tested combination of 3840×2160 MediaRecorder plus a CPU-readable YUV ImageReader. v0.3.3 stops asking the camera for that unsupported combination.
+Persistence adds a limited score bonus, capped at 0.18.
 
-The new DVR uses two PRIVATE-style camera outputs instead:
+## Multi-object event names
 
-1. **4K MediaRecorder surface** for the rolling MP4 pre-record buffer.
-2. **SurfaceTexture preview surface** for the viewer and motion detector.
+The old "second label must be within 0.12 of the winner" rule has been removed.
 
-The preview SurfaceTexture is consumed by an off-screen OpenGL worker. It downsamples the preview on the GPU, reads motion frames at a target of **10 fps**, and generates LAN-viewer JPEG frames at roughly **5 fps**.
+Up to four independently supported event categories can now be retained.
 
-## Suggested Motorola Edge 30 Ultra settings
+Examples:
 
-- Show over other apps: **Allowed**
-- Camera: rear/main camera
-- Recording: **4K UHD 3840×2160**
-- Motion AI: **On**
-- Sensitivity: **65%**
-- Pre-record: **10 seconds**
-- Post-record: **20 seconds**
+- `Person + Dog`
+- `Person + Dog + Bicycle`
+- `Person + Dog + Something thrown at the door`
+- `Cat + Person`
 
-Wait for a status beginning with **DVR armed** before turning the screen off.
+A strong Person detection no longer suppresses Dog merely because the dog has a
+lower confidence.
 
-## Pre-record
+## Event log evidence
 
-The recorder continuously writes short temporary MP4 segments. Old non-event segments are deleted. When motion triggers, the already-completed pre-record segments are retained, post-record segments are added, and the event segments are merged into one MP4 without re-encoding.
+Saved-event log entries now include an evidence summary, for example:
 
-## Audio
+`evidence=person=0.88×9/7; dog=0.46×6/5`
 
-The new Camera2 DVR remains video-only for now. This deliberately avoids the microphone ownership conflicts that destabilized the older camera mode.
+The first number is maximum confidence, followed by total hits and distinct
+analysis times. This makes missed or false classifications much easier to tune.
 
-
-## AI event filenames (v0.3.5)
-
-The DVR keeps motion/pre-record as the trigger mechanism, then classifies frames
-during the event and uses the strongest enabled AI rule as the saved filename.
-
-Open **AI EVENTS AND CUSTOM RULES** from DVR Camera mode to rename or add rules.
-For example, a custom OBJECT rule named `My dog at door` with signal `dog` will
-override the generic `Dog` filename when the dog detector passes that rule's
-confidence threshold.
-
-If the object model is missing, use **PREPARE / DOWNLOAD AI MODELS** and restart
-DVR Camera mode after the download finishes.
-
-
-## Remote recording library (v0.3.6)
-
-In **Monitor Mode**, connect to the camera phone and use **Camera phone
-recordings**. The list shows the AI-named recordings stored on the camera
-phone. Select an item and choose:
-
-- **Play selected recording from camera phone** to stream it over local Wi-Fi.
-- **Save selected recording on monitor phone** to copy it into
-  `Movies/AI Door Monitor/Camera Phone`.
-
-Remote playback is token-protected and supports HTTP byte-range seeking.
-
-
-## Recording thumbnails and v0.3.7 player
-
-Monitor Mode now displays preview thumbnails generated from the actual camera-phone MP4 files. Tap a thumbnail to open playback.
-
-Remote playback uses Media3 ExoPlayer. If the LAN MP4 timeline starts but no video frame renders, the player automatically caches a temporary local copy on the monitor phone and retries from the same playback position.
-
-
-## Sound and vehicle event triggers (v0.3.9)
-
-Enable **Sound AI trigger** to let YamNet start the same pre-record event used by
-motion. Dog barking and dog growling are enabled by default.
-
-**Car** and **Bicycle** can also start events from the normal object detector.
-
-For **Stroller / barnevogn**, import a MediaPipe-compatible custom Object
-Detector `.tflite` model with a label such as `stroller`, `pram`, `pushchair`,
-or `baby_carriage`, then restart DVR Camera.
-
-The microphone is used by Sound AI in this build. Saved DVR MP4 files are still
-video-only; audio muxing is a separate feature.
-
-
-## Audio in saved event videos (v0.4.0)
-
-Enable **Record microphone audio in saved videos** in DVR Camera mode.
-
-The DVR uses a single shared 48 kHz mono microphone capture. That PCM stream is
-used both for event audio and for YamNet Sound AI. Saved event MP4s receive an
-AAC-LC audio track after the video segments are merged.
-
-This avoids running a separate microphone recorder for Sound AI while another
-component tries to record MP4 audio.
-
-
-## Moving-car-only detection (v0.4.3)
-
-The `Car` event trigger now requires temporal movement. A parked car may still
-be present in the detector output, but it is filtered out before DVR triggering
-and event naming.
-
-The app follows each car bounding box over multiple AI frames and confirms
-movement from persistent center displacement or scale/area change. Remote zoom
-or pan resets the tracker so a camera crop change cannot be mistaken for a
-moving car.
-
-
-## v0.5.0 highlights
-
-- Remote Camera2 zoom uses `CONTROL_ZOOM_RATIO` on Android 11+ and reports the
-  hardware-applied zoom ratio.
-- 8K 7680×4320 at 24 fps is available when the selected camera exposes it.
-- Monitor Mode can delete selected/checked originals from the camera phone.
-- Remote recordings can be sorted by time, filename/AI label, duration or size.
-- Audio synchronization uses the actual AudioRecord sample rate and can apply
-  up to 5 seconds of manual Audio-later correction.
-
-
-## Local video playback zoom/pan (v0.5.2)
-
-In the remote recording player, enable **VIDEO ZOOM / PAN**.
-
-- Pinch: 1x to 5x playback zoom.
-- Drag: pan while zoomed.
-- Double-tap: reset.
-- Disable Zoom/Pan mode to use the normal Media3 playback controls.
-
-This only changes the monitor-side view and does not modify the saved MP4.
-
-
-## Deterministic camera rotation (v0.5.3)
-
-For a phone mounted normally upright with the **top upward and USB/charger
-toward the floor**, select:
-
-**0° • UPRIGHT • top up / USB down**
-
-Manual 0/90/180/270 values are direct video/preview corrections and no longer
-depend on the phone's Camera2 `SENSOR_ORIENTATION`. Use Auto only when you want
-Android sensor/display orientation to decide the output rotation.
+All v0.5.8 features remain:
+- persistent monitor connection when returning from video playback,
+- live camera audio,
+- native portrait GPU preview,
+- remote resolution/bitrate/audio settings,
+- strict saved-MP4 audio verification,
+- event folders,
+- moving-car-only filtering,
+- remote zoom/focus/delete,
+- player zoom/pan/rotation.
