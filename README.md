@@ -1,3 +1,15 @@
+# Changelog
+
+## 0.5.16 – Power Deficit Monitor
+
+- Added camera-phone net battery current to the monitor live overlay.
+- Added estimated net battery power (W) when battery voltage is available.
+- Uses `BATTERY_PROPERTY_CURRENT_AVERAGE` when supported and falls back to `BATTERY_PROPERTY_CURRENT_NOW`.
+- Positive current means net charging; negative current means net battery drain.
+- If external power is connected and net current remains below -100 mA for 30 seconds, the monitor shows `⚠ POWER DEFICIT`.
+- Power-deficit duration is shown in the live overlay.
+- Existing temperature, battery %, charging source, AI-event and fullscreen controls are retained.
+
 # v0.5.15.1 - Camera battery status fix
 
 - Fixes `Battery: --% • Unavailable` on camera phones where the sticky `ACTION_BATTERY_CHANGED` query returns null or fails.
