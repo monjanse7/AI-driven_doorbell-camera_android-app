@@ -50,7 +50,9 @@ Main features
 🌐 Local network and Tailscale remote-access support
 📷 QR pairing between Camera and Monitor phones
 🎞️ High-resolution recording, depending on device Camera2 capabilities
-How it works
+
+
+#How it works
 
 The system uses two Android devices:
 
